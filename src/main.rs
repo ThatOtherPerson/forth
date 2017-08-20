@@ -40,6 +40,15 @@ impl Runtime {
         }
     }
 
+    // TODO: fix inconsistent parameter types
+    fn prepend_input(&mut self, names: &Vec<String>) {
+        // To execute a user-defined colon definition,
+        // put it at the beginning of the input queue
+        for name in names.iter().rev() {
+            self.input.push_front(name.to_string())
+        }
+    }
+
     // TODO: perhaps move interaction with console here
     //   so that Forth can read new input if it needs
     //   for example, if in a colon definition and ; has not
@@ -81,7 +90,7 @@ impl Runtime {
                 self.stack.push(num);
                 Ok(())
             },
-            Err(_) => Err("Undefined word".to_string())
+            Err(_) => Err(format!("Undefined word \"{}\"", name))
             // TODO: more descriptive error type
             //   so that error message could say what word
             //   and highlight in code
@@ -92,11 +101,7 @@ impl Runtime {
         match value {
             &Word::Native(callback) => callback(self),
             &Word::Colon(ref definition) => {
-                // To execute a user-defined colon definition,
-                // put it at the beginning of the input queue
-                for name in definition.iter().rev() {
-                    self.input.push_front(name.to_string())
-                }
+                self.prepend_input(definition);
                 Ok(())
             },
             &Word::Number(num) => Err(format!("not actually sure what to do with this... {}", num)),
@@ -157,6 +162,30 @@ fn rt_forth_div(forth: &mut Runtime) -> FResult {
     success.ok_or("Stack underflow".to_string())
 }
 
+fn rt_forth_eq(forth: &mut Runtime) -> FResult {
+    let success = forth.pop()
+        .and_then(|a| forth.pop().map(|b| (b == a) as i32))
+        .map(|result| forth.push(result));
+
+    success.ok_or("Stack underflow".to_string())
+}
+
+fn rt_forth_gt(forth: &mut Runtime) -> FResult {
+    let success = forth.pop()
+        .and_then(|a| forth.pop().map(|b| (b > a) as i32))
+        .map(|result| forth.push(result));
+
+    success.ok_or("Stack underflow".to_string())
+}
+
+fn rt_forth_lt(forth: &mut Runtime) -> FResult {
+    let success = forth.pop()
+        .and_then(|a| forth.pop().map(|b| (b < a) as i32))
+        .map(|result| forth.push(result));
+
+    success.ok_or("Stack underflow".to_string())
+}
+
 fn rt_forth_dup(forth: &mut Runtime) -> FResult {
     let value = try!(forth.pop().ok_or("Stack underflow".to_string()));
     forth.push(value);
@@ -164,10 +193,16 @@ fn rt_forth_dup(forth: &mut Runtime) -> FResult {
     Ok(())
 }
 
+fn rt_forth_drop(forth: &mut Runtime) -> FResult {
+    try!(forth.pop().ok_or("Stack underflow".to_string()));
+    Ok(())
+}
+
 fn rt_forth_colon(forth: &mut Runtime) -> FResult {
     // TODO: Maybe some sort of convenience method for this?
     let name = try!(forth.parse().ok_or("Attempt to use zero-length string as name".to_string()));
 
+    // TODO: perhaps a colon def should be words rather than names
     let mut definition = vec![];
 
     // TODO: should handle "( n -- )"-like strings
@@ -183,7 +218,30 @@ fn rt_forth_colon(forth: &mut Runtime) -> FResult {
     forth.register(&name, Word::Colon(definition));
 
     Ok(())
+}
 
+fn rt_forth_if(forth: &mut Runtime) -> FResult {
+    // TODO: unary op helper?
+    let condition = try!(forth.pop().ok_or("Stack underflow".to_string())) != 0;
+    let mut words = vec![];
+
+    let mut in_consequent = true;
+
+    while let Some(word) = forth.parse() {
+        if word.to_lowercase() == "then" {
+            break;
+        }
+
+        if word.to_lowercase() == "else" {
+            in_consequent = false;
+        } else if (condition && in_consequent) || (!condition && !in_consequent) {
+            words.push(word);
+        }
+    }
+
+    forth.prepend_input(&words);
+
+    Ok(())
 }
 
 fn main() {
@@ -199,9 +257,16 @@ fn main() {
     forth.register("*", Word::Native(rt_forth_mul));
     forth.register("/", Word::Native(rt_forth_div));
 
+    forth.register("=", Word::Native(rt_forth_eq));
+    forth.register(">", Word::Native(rt_forth_gt));
+    forth.register("<", Word::Native(rt_forth_lt));
+
     forth.register("dup", Word::Native(rt_forth_dup));
+    forth.register("drop", Word::Native(rt_forth_drop));
 
     forth.register(":", Word::Native(rt_forth_colon));
+
+    forth.register("if", Word::Native(rt_forth_if));
 
     loop {
         print!("> ");
