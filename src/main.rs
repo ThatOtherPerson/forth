@@ -5,6 +5,7 @@ type FResult = Result<(), String>;
 
 enum Word {
     Native(fn(&mut Runtime) -> FResult),
+    Colon(Vec<String>),
     Number(i32) // is this a thing, in Forth?
 }
 
@@ -12,19 +13,20 @@ impl Clone for Word {
     fn clone(&self) -> Self {
         match self {
             &Word::Native(callback) => Word::Native(callback),
+            &Word::Colon(ref definition) => Word::Colon(definition.clone()),
             &Word::Number(num) => Word::Number(num)
         }
     }
 }
 
-struct Runtime<'a> {
+struct Runtime {
     input: VecDeque<String>,
-    dictionary: HashMap<&'a str, Word>,
+    dictionary: HashMap<String, Word>,
     stack: Vec<i32>
 }
 
-impl <'a> Runtime<'a> {
-    fn new() -> Runtime<'a> {
+impl Runtime {
+    fn new() -> Runtime {
         Runtime {
             input: VecDeque::new(),
             dictionary: HashMap::new(),
@@ -38,10 +40,18 @@ impl <'a> Runtime<'a> {
         }
     }
 
+    // TODO: perhaps move interaction with console here
+    //   so that Forth can read new input if it needs
+    //   for example, if in a colon definition and ; has not
+    //   yet been reached
+    fn parse(&mut self) -> Option<String> {
+        self.input.pop_front()
+    }
+
     fn eval(&mut self, source: &str) -> FResult {
         self.append_input(source);
 
-        while let Some(name) = self.input.pop_front() {
+        while let Some(name) = self.parse() {
             let result = self.eval_name(&name);
 
             if let Err(_) = result {
@@ -55,6 +65,7 @@ impl <'a> Runtime<'a> {
     fn eval_name(&mut self, name: &str) -> FResult {
         let word = {
             let dict = &self.dictionary;
+            // TODO: is it possible to clean this up? to not use clone?
             dict.get(name).map(|w| { w.clone() })
         };
         if let Some(value) = word {
@@ -72,17 +83,27 @@ impl <'a> Runtime<'a> {
             },
             Err(_) => Err("Undefined word".to_string())
             // TODO: more descriptive error type
+            //   so that error message could say what word
+            //   and highlight in code
         }
     }
 
     fn eval_value(&mut self, value: &Word) -> FResult {
         match value {
+            &Word::Native(callback) => callback(self),
+            &Word::Colon(ref definition) => {
+                // To execute a user-defined colon definition,
+                // put it at the beginning of the input queue
+                for name in definition.iter().rev() {
+                    self.input.push_front(name.to_string())
+                }
+                Ok(())
+            },
             &Word::Number(num) => Err(format!("not actually sure what to do with this... {}", num)),
-            &Word::Native(callback) => callback(self)
         }
     }
 
-    fn register(&mut self, name: &'a str, word: Word) {
+    fn register(&mut self, name: String, word: Word) {
         self.dictionary.insert(name, word);
     }
 
@@ -136,18 +157,51 @@ fn rt_forth_div(forth: &mut Runtime) -> FResult {
     success.ok_or("Stack underflow".to_string())
 }
 
+fn rt_forth_dup(forth: &mut Runtime) -> FResult {
+    let value = try!(forth.pop().ok_or("Stack underflow".to_string()));
+    forth.push(value);
+    forth.push(value);
+    Ok(())
+}
+
+fn rt_forth_colon(forth: &mut Runtime) -> FResult {
+    // TODO: Maybe some sort of convenience method for this?
+    let name = try!(forth.parse().ok_or("Attempt to use zero-length string as name".to_string()));
+
+    let mut definition = vec![];
+
+    // TODO: should handle "( n -- )"-like strings
+    //       I think it's a comment or specification of parameters??
+    while let Some(word) = forth.parse() {
+        if word == ";" {
+            break;
+        }
+
+        definition.push(word)
+    }
+
+    forth.register(name, Word::Colon(definition));
+
+    Ok(())
+
+}
+
 fn main() {
     let mut forth = Runtime::new();
 
     // TODO: put all this into Runtime::new, or such
     // as initializing the standard library
-    forth.register(".", Word::Native(rt_forth_print));
+    forth.register(".".to_string(), Word::Native(rt_forth_print));
 
-    forth.register("+", Word::Native(rt_forth_add));
-    forth.register("-", Word::Native(rt_forth_sub));
+    forth.register("+".to_string(), Word::Native(rt_forth_add));
+    forth.register("-".to_string(), Word::Native(rt_forth_sub));
 
-    forth.register("*", Word::Native(rt_forth_mul));
-    forth.register("/", Word::Native(rt_forth_div));
+    forth.register("*".to_string(), Word::Native(rt_forth_mul));
+    forth.register("/".to_string(), Word::Native(rt_forth_div));
+
+    forth.register("dup".to_string(), Word::Native(rt_forth_dup));
+
+    forth.register(":".to_string(), Word::Native(rt_forth_colon));
 
     loop {
         print!("> ");
