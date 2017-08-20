@@ -2,7 +2,7 @@ use std::io::{self, Write};
 use std::collections::HashMap;
 
 enum Word {
-    Native(fn(&mut Runtime)),
+    Native(fn(&mut Runtime) -> Result<(), String>),
     Number(i32) // is this a thing, in Forth?
 }
 
@@ -28,15 +28,20 @@ impl <'a> Runtime<'a> {
         }
     }
 
-    fn eval(&mut self, source: &str) {
+    fn eval(&mut self, source: &str) -> Result<(), String> {
         for name in source.split_whitespace() {
-            self.eval_name(name);
+            let result = self.eval_name(name);
+
+            if let Err(_) = result {
+                return result;
+            }
         }
 
-        println!("ok");
+        Ok(())
     }
 
-    fn eval_name(&mut self, name: &str) {
+    // TODO: alias result type (FResult?)
+    fn eval_name(&mut self, name: &str) -> Result<(), String> {
         let word = {
             let dict = &self.dictionary;
             dict.get(name).map(|w| { w.clone() })
@@ -48,19 +53,20 @@ impl <'a> Runtime<'a> {
         }
     }
 
-    fn eval_as_number(&mut self, name: &str) {
-        if let Ok(number) = name.parse() {
-            self.stack.push(number);
-        } else {
-            eprintln!("Undefined word");
-            // TODO: return error
-            //   so that the main REPL doesn't print "ok"
+    fn eval_as_number(&mut self, name: &str) -> Result<(), String> {
+        match name.parse() {
+            Ok(num) => {
+                self.stack.push(num);
+                Ok(())
+            },
+            Err(_) => Err("Undefined word".to_string())
+            // TODO: more descriptive error type
         }
     }
 
-    fn eval_value(&mut self, value: &Word) {
+    fn eval_value(&mut self, value: &Word) -> Result<(), String> {
         match value {
-            &Word::Number(num) => println!("not actually sure what to do with this... {}", num),
+            &Word::Number(num) => Err(format!("not actually sure what to do with this... {}", num)),
             &Word::Native(callback) => callback(self)
         }
     }
@@ -75,14 +81,22 @@ impl <'a> Runtime<'a> {
     }
 }
 
-fn rt_forth_print(forth: &mut Runtime) {
-    println!("{}", forth.pop().expect("Stack underflow"));
+fn rt_forth_print(forth: &mut Runtime) -> Result<(), String> {
+    let popped = forth.pop();
+
+    match popped {
+        Some(value) => {
+            println!("{}", value);
+            Ok(())
+        },
+        None => Err("Stack underflow".to_string())
+    }
 }
 
 fn main() {
     let mut forth = Runtime::new();
 
-    let rfp: fn(&mut Runtime) = rt_forth_print;
+    let rfp: fn(&mut Runtime) -> Result<(), String> = rt_forth_print;
 
     forth.register(".", Word::Native(rfp));
 
@@ -92,6 +106,9 @@ fn main() {
         let mut buffer = String::new();
         io::stdin().read_line(&mut buffer).unwrap();
 
-        forth.eval(&buffer);
+        match forth.eval(&buffer) {
+            Ok(_) => println!("ok"),
+            Err(e) => eprintln!("! {}", e)
+        }
     }
 }
