@@ -1,8 +1,10 @@
 use std::io::{self, Write};
 use std::collections::HashMap;
 
+type FResult = Result<(), String>;
+
 enum Word {
-    Native(fn(&mut Runtime) -> Result<(), String>),
+    Native(fn(&mut Runtime) -> FResult),
     Number(i32) // is this a thing, in Forth?
 }
 
@@ -28,7 +30,7 @@ impl <'a> Runtime<'a> {
         }
     }
 
-    fn eval(&mut self, source: &str) -> Result<(), String> {
+    fn eval(&mut self, source: &str) -> FResult {
         for name in source.split_whitespace() {
             let result = self.eval_name(name);
 
@@ -40,8 +42,7 @@ impl <'a> Runtime<'a> {
         Ok(())
     }
 
-    // TODO: alias result type (FResult?)
-    fn eval_name(&mut self, name: &str) -> Result<(), String> {
+    fn eval_name(&mut self, name: &str) -> FResult {
         let word = {
             let dict = &self.dictionary;
             dict.get(name).map(|w| { w.clone() })
@@ -53,7 +54,7 @@ impl <'a> Runtime<'a> {
         }
     }
 
-    fn eval_as_number(&mut self, name: &str) -> Result<(), String> {
+    fn eval_as_number(&mut self, name: &str) -> FResult {
         match name.parse() {
             Ok(num) => {
                 self.stack.push(num);
@@ -64,7 +65,7 @@ impl <'a> Runtime<'a> {
         }
     }
 
-    fn eval_value(&mut self, value: &Word) -> Result<(), String> {
+    fn eval_value(&mut self, value: &Word) -> FResult {
         match value {
             &Word::Number(num) => Err(format!("not actually sure what to do with this... {}", num)),
             &Word::Native(callback) => callback(self)
@@ -81,7 +82,7 @@ impl <'a> Runtime<'a> {
     }
 }
 
-fn rt_forth_print(forth: &mut Runtime) -> Result<(), String> {
+fn rt_forth_print(forth: &mut Runtime) -> FResult {
     let popped = forth.pop();
 
     match popped {
@@ -96,7 +97,7 @@ fn rt_forth_print(forth: &mut Runtime) -> Result<(), String> {
 fn main() {
     let mut forth = Runtime::new();
 
-    let rfp: fn(&mut Runtime) -> Result<(), String> = rt_forth_print;
+    let rfp: fn(&mut Runtime) -> FResult = rt_forth_print;
 
     forth.register(".", Word::Native(rfp));
 
