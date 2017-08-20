@@ -66,7 +66,7 @@ impl Runtime {
         let word = {
             let dict = &self.dictionary;
             // TODO: is it possible to clean this up? to not use clone?
-            dict.get(name).map(|w| { w.clone() })
+            dict.get(&name.to_lowercase()).map(|w| { w.clone() })
         };
         if let Some(value) = word {
             self.eval_value(&value)
@@ -103,8 +103,8 @@ impl Runtime {
         }
     }
 
-    fn register(&mut self, name: String, word: Word) {
-        self.dictionary.insert(name, word);
+    fn register(&mut self, name: &str, word: Word) {
+        self.dictionary.insert(name.to_lowercase(), word);
     }
 
     // TODO: maybe the forth type should be an alias or something
@@ -180,7 +180,7 @@ fn rt_forth_colon(forth: &mut Runtime) -> FResult {
         definition.push(word)
     }
 
-    forth.register(name, Word::Colon(definition));
+    forth.register(&name, Word::Colon(definition));
 
     Ok(())
 
@@ -191,17 +191,17 @@ fn main() {
 
     // TODO: put all this into Runtime::new, or such
     // as initializing the standard library
-    forth.register(".".to_string(), Word::Native(rt_forth_print));
+    forth.register(".", Word::Native(rt_forth_print));
 
-    forth.register("+".to_string(), Word::Native(rt_forth_add));
-    forth.register("-".to_string(), Word::Native(rt_forth_sub));
+    forth.register("+", Word::Native(rt_forth_add));
+    forth.register("-", Word::Native(rt_forth_sub));
 
-    forth.register("*".to_string(), Word::Native(rt_forth_mul));
-    forth.register("/".to_string(), Word::Native(rt_forth_div));
+    forth.register("*", Word::Native(rt_forth_mul));
+    forth.register("/", Word::Native(rt_forth_div));
 
-    forth.register("dup".to_string(), Word::Native(rt_forth_dup));
+    forth.register("dup", Word::Native(rt_forth_dup));
 
-    forth.register(":".to_string(), Word::Native(rt_forth_colon));
+    forth.register(":", Word::Native(rt_forth_colon));
 
     loop {
         print!("> ");
