@@ -64,6 +64,7 @@ impl Runtime {
             let result = self.eval_name(&name);
 
             if let Err(_) = result {
+                self.input.clear();
                 return result;
             }
         }
@@ -186,6 +187,12 @@ fn rt_forth_lt(forth: &mut Runtime) -> FResult {
     success.ok_or("Stack underflow".to_string())
 }
 
+fn rt_forth_invert(forth: &mut Runtime) -> FResult {
+    let value = try!(forth.pop().ok_or("Stack underflow".to_string()));
+    forth.push(!value);
+    Ok(())
+}
+
 fn rt_forth_dup(forth: &mut Runtime) -> FResult {
     let value = try!(forth.pop().ok_or("Stack underflow".to_string()));
     forth.push(value);
@@ -260,6 +267,8 @@ fn main() {
     forth.register("=", Word::Native(rt_forth_eq));
     forth.register(">", Word::Native(rt_forth_gt));
     forth.register("<", Word::Native(rt_forth_lt));
+
+    forth.register("invert", Word::Native(rt_forth_invert));
 
     forth.register("dup", Word::Native(rt_forth_dup));
     forth.register("drop", Word::Native(rt_forth_drop));
