@@ -1,5 +1,5 @@
+use std::collections::{VecDeque, HashMap};
 use std::io::{self, Write};
-use std::collections::HashMap;
 
 type FResult = Result<(), String>;
 
@@ -18,6 +18,7 @@ impl Clone for Word {
 }
 
 struct Runtime<'a> {
+    input: VecDeque<String>,
     dictionary: HashMap<&'a str, Word>,
     stack: Vec<i32>
 }
@@ -25,14 +26,23 @@ struct Runtime<'a> {
 impl <'a> Runtime<'a> {
     fn new() -> Runtime<'a> {
         Runtime {
+            input: VecDeque::new(),
             dictionary: HashMap::new(),
             stack: vec![]
         }
     }
 
-    fn eval(&mut self, source: &str) -> FResult {
+    fn append_input(&mut self, source: &str) {
         for name in source.split_whitespace() {
-            let result = self.eval_name(name);
+            self.input.push_back(name.to_string())
+        }
+    }
+
+    fn eval(&mut self, source: &str) -> FResult {
+        self.append_input(source);
+
+        while let Some(name) = self.input.pop_front() {
+            let result = self.eval_name(&name);
 
             if let Err(_) = result {
                 return result;
