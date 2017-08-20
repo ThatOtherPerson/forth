@@ -80,26 +80,64 @@ impl <'a> Runtime<'a> {
     fn pop(&mut self) -> Option<i32> {
         self.stack.pop()
     }
+
+    fn push(&mut self, value: i32) {
+        self.stack.push(value)
+    }
 }
 
 fn rt_forth_print(forth: &mut Runtime) -> FResult {
-    let popped = forth.pop();
+    let value = try!(forth.pop().ok_or("Stack underflow".to_string()));
+    println!("{}", value);
+    Ok(())
+}
 
-    match popped {
-        Some(value) => {
-            println!("{}", value);
-            Ok(())
-        },
-        None => Err("Stack underflow".to_string())
-    }
+fn rt_forth_add(forth: &mut Runtime) -> FResult {
+    // TODO: these bits may be too clever - hard to read for
+    // those unfamiliar with Rust
+    let success = forth.pop()
+        .and_then(|a| forth.pop().map(|b| b + a))
+        .map(|result| forth.push(result));
+
+    success.ok_or("Stack underflow".to_string())
+}
+
+fn rt_forth_sub(forth: &mut Runtime) -> FResult {
+    let success = forth.pop()
+        .and_then(|a| forth.pop().map(|b| b - a))
+        .map(|result| forth.push(result));
+
+    success.ok_or("Stack underflow".to_string())
+}
+
+fn rt_forth_mul(forth: &mut Runtime) -> FResult {
+    let success = forth.pop()
+        .and_then(|a| forth.pop().map(|b| b * a))
+        .map(|result| forth.push(result));
+
+    success.ok_or("Stack underflow".to_string())
+}
+
+fn rt_forth_div(forth: &mut Runtime) -> FResult {
+    let success = forth.pop()
+        .and_then(|a| forth.pop().map(|b| b / a))
+        .map(|result| forth.push(result));
+
+    success.ok_or("Stack underflow".to_string())
 }
 
 fn main() {
     let mut forth = Runtime::new();
 
-    let rfp: fn(&mut Runtime) -> FResult = rt_forth_print;
+    // TODO: put all this into Runtime::new, or such
+    // as initializing the standard library
+    forth.register(".", Word::Native(rt_forth_print));
 
-    forth.register(".", Word::Native(rfp));
+    forth.register("+", Word::Native(rt_forth_add));
+    forth.register("-", Word::Native(rt_forth_sub));
+
+    forth.register("*", Word::Native(rt_forth_mul));
+    forth.register("/", Word::Native(rt_forth_div));
 
     loop {
         print!("> ");
