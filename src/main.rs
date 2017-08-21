@@ -6,7 +6,7 @@ type FResult = Result<(), String>;
 enum Word {
     Native(fn(&mut Runtime) -> FResult),
     Colon(Vec<String>),
-    Number(i32) // is this a thing, in Forth?
+    Number(i32)
 }
 
 impl Clone for Word {
@@ -57,6 +57,13 @@ impl Runtime {
         self.input.pop_front()
     }
 
+    fn resolve(&self, name: &str) -> Option<Word> {
+        match self.dictionary.get(&name.to_lowercase()) {
+            Some(w) => Some(w.clone()),
+            None => name.parse().ok().map(|num| Word::Number(num))
+        }
+    }
+
     fn eval(&mut self, source: &str) -> FResult {
         self.append_input(source);
 
@@ -73,39 +80,24 @@ impl Runtime {
     }
 
     fn eval_name(&mut self, name: &str) -> FResult {
-        let word = {
-            let dict = &self.dictionary;
-            // TODO: is it possible to clean this up? to not use clone?
-            dict.get(&name.to_lowercase()).map(|w| { w.clone() })
-        };
-        if let Some(value) = word {
-            self.eval_value(&value)
+        if let Some(word) = self.resolve(name) {
+            self.eval_word(&word)
         } else {
-            self.eval_as_number(name)
+            Err(format!("Undefined word \"{}\"", name))
         }
     }
 
-    fn eval_as_number(&mut self, name: &str) -> FResult {
-        match name.parse() {
-            Ok(num) => {
-                self.stack.push(num);
-                Ok(())
-            },
-            Err(_) => Err(format!("Undefined word \"{}\"", name))
-            // TODO: more descriptive error type
-            //   so that error message could say what word
-            //   and highlight in code
-        }
-    }
-
-    fn eval_value(&mut self, value: &Word) -> FResult {
-        match value {
+    fn eval_word(&mut self, word: &Word) -> FResult {
+        match word {
             &Word::Native(callback) => callback(self),
             &Word::Colon(ref definition) => {
                 self.prepend_input(definition);
                 Ok(())
             },
-            &Word::Number(num) => Err(format!("not actually sure what to do with this... {}", num)),
+            &Word::Number(num) => {
+                self.push(num);
+                Ok(())
+            }
         }
     }
 
