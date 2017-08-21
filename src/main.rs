@@ -57,10 +57,16 @@ impl Runtime {
         self.input.pop_front()
     }
 
-    fn resolve(&self, name: &str) -> Option<Word> {
+    fn resolve(&self, name: &str) -> Result<Word, String> {
         match self.dictionary.get(&name.to_lowercase()) {
-            Some(w) => Some(w.clone()),
-            None => name.parse().ok().map(|num| Word::Number(num))
+            Some(w) => Ok(w.clone()),
+            None => {
+                name.parse()
+                    .map(|num| Word::Number(num))
+                    .or(Err(format!("Undefined word \"{}\"", name)))
+                    // TODO: ^ hm
+
+            }
         }
     }
 
@@ -80,11 +86,7 @@ impl Runtime {
     }
 
     fn eval_name(&mut self, name: &str) -> FResult {
-        if let Some(word) = self.resolve(name) {
-            self.eval_word(&word)
-        } else {
-            Err(format!("Undefined word \"{}\"", name))
-        }
+        self.resolve(name).and_then(|word| self.eval_word(&word))
     }
 
     fn eval_word(&mut self, word: &Word) -> FResult {
