@@ -8,62 +8,46 @@ fn rt_forth_print(forth: &mut Runtime) -> FResult {
     Ok(())
 }
 
-fn rt_forth_add(forth: &mut Runtime) -> FResult {
-    // TODO: these bits may be too clever - hard to read for
-    // those unfamiliar with Rust
+fn unary_word<F>(forth: &mut Runtime, callback: F) -> FResult where F: FnMut(i32) -> i32 {
+    forth.pop().map(callback).map(|result| forth.push(result))
+        .ok_or("Stack underflow".to_string())
+}
+
+
+fn binary_word<F>(forth: &mut Runtime, mut callback: F) -> FResult where F: FnMut(i32, i32) -> i32 {
     let success = forth.pop()
-        .and_then(|a| forth.pop().map(|b| b + a))
+        .and_then(|a| forth.pop().map(|b| callback(b, a)))
         .map(|result| forth.push(result));
 
     success.ok_or("Stack underflow".to_string())
+}
+
+fn rt_forth_add(forth: &mut Runtime) -> FResult {
+    binary_word(forth, |a, b| a + b)
 }
 
 fn rt_forth_sub(forth: &mut Runtime) -> FResult {
-    let success = forth.pop()
-        .and_then(|a| forth.pop().map(|b| b - a))
-        .map(|result| forth.push(result));
-
-    success.ok_or("Stack underflow".to_string())
+    binary_word(forth, |a, b| a - b)
 }
 
 fn rt_forth_mul(forth: &mut Runtime) -> FResult {
-    let success = forth.pop()
-        .and_then(|a| forth.pop().map(|b| b * a))
-        .map(|result| forth.push(result));
-
-    success.ok_or("Stack underflow".to_string())
+    binary_word(forth, |a, b| a * b)
 }
 
 fn rt_forth_div(forth: &mut Runtime) -> FResult {
-    let success = forth.pop()
-        .and_then(|a| forth.pop().map(|b| b / a))
-        .map(|result| forth.push(result));
-
-    success.ok_or("Stack underflow".to_string())
+    binary_word(forth, |a, b| a / b)
 }
 
 fn rt_forth_eq(forth: &mut Runtime) -> FResult {
-    let success = forth.pop()
-        .and_then(|a| forth.pop().map(|b| (b == a) as i32))
-        .map(|result| forth.push(result));
-
-    success.ok_or("Stack underflow".to_string())
+    binary_word(forth, |a, b| (a == b) as i32)
 }
 
 fn rt_forth_gt(forth: &mut Runtime) -> FResult {
-    let success = forth.pop()
-        .and_then(|a| forth.pop().map(|b| (b > a) as i32))
-        .map(|result| forth.push(result));
-
-    success.ok_or("Stack underflow".to_string())
+    binary_word(forth, |a, b| (a > b) as i32)
 }
 
 fn rt_forth_lt(forth: &mut Runtime) -> FResult {
-    let success = forth.pop()
-        .and_then(|a| forth.pop().map(|b| (b < a) as i32))
-        .map(|result| forth.push(result));
-
-    success.ok_or("Stack underflow".to_string())
+    binary_word(forth, |a, b| (a < b) as i32)
 }
 
 fn rt_forth_invert(forth: &mut Runtime) -> FResult {
@@ -85,7 +69,6 @@ fn rt_forth_drop(forth: &mut Runtime) -> FResult {
 }
 
 fn rt_forth_colon(forth: &mut Runtime) -> FResult {
-    // TODO: Maybe some sort of convenience method for this?
     let name = try!(forth.parse().ok_or("Attempt to use zero-length string as name".to_string()));
 
     // TODO: perhaps a colon def should be words rather than names
@@ -125,7 +108,7 @@ fn rt_forth_if(forth: &mut Runtime) -> FResult {
         }
     }
 
-    forth.prepend_input(&words);
+    forth.prepend_names(&words);
 
     Ok(())
 }
