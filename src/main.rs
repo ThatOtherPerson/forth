@@ -1,7 +1,7 @@
 extern crate forth;
 
 use std::io::{self, Write};
-use forth::{Runtime};
+use forth::Runtime;
 
 fn main() {
     let mut forth = Runtime::new();
@@ -13,7 +13,7 @@ fn main() {
 
         match forth.eval(&buffer) {
             Ok(_) => println!("ok"),
-            Err(e) => eprintln!("! {}", e)
+            Err(e) => eprintln!("! {}", e),
         }
     }
 }

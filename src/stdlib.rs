@@ -8,14 +8,24 @@ fn rt_forth_print(forth: &mut Runtime) -> FResult {
     Ok(())
 }
 
-fn unary_word<F>(forth: &mut Runtime, callback: F) -> FResult where F: FnMut(i32) -> i32 {
-    forth.pop().map(callback).map(|result| forth.push(result))
+fn unary_word<F>(forth: &mut Runtime, callback: F) -> FResult
+where
+    F: FnMut(i32) -> i32,
+{
+    forth
+        .pop()
+        .map(callback)
+        .map(|result| forth.push(result))
         .ok_or("Stack underflow".to_string())
 }
 
 
-fn binary_word<F>(forth: &mut Runtime, mut callback: F) -> FResult where F: FnMut(i32, i32) -> i32 {
-    let success = forth.pop()
+fn binary_word<F>(forth: &mut Runtime, mut callback: F) -> FResult
+where
+    F: FnMut(i32, i32) -> i32,
+{
+    let success = forth
+        .pop()
         .and_then(|a| forth.pop().map(|b| callback(b, a)))
         .map(|result| forth.push(result));
 
@@ -69,7 +79,9 @@ fn rt_forth_drop(forth: &mut Runtime) -> FResult {
 }
 
 fn rt_forth_colon(forth: &mut Runtime) -> FResult {
-    let name = try!(forth.parse().ok_or("Attempt to use zero-length string as name".to_string()));
+    let name = try!(forth.parse().ok_or(
+        "Attempt to use zero-length string as name".to_string(),
+    ));
 
     // TODO: perhaps a colon def should be words rather than names
     let mut definition = vec![];

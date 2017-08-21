@@ -7,7 +7,7 @@ pub type FResult = Result<(), String>;
 enum Word {
     Native(fn(&mut Runtime) -> FResult),
     Colon(Vec<String>),
-    Number(i32)
+    Number(i32),
 }
 
 impl Clone for Word {
@@ -15,7 +15,7 @@ impl Clone for Word {
         match self {
             &Word::Native(callback) => Word::Native(callback),
             &Word::Colon(ref definition) => Word::Colon(definition.clone()),
-            &Word::Number(num) => Word::Number(num)
+            &Word::Number(num) => Word::Number(num),
         }
     }
 }
@@ -23,7 +23,7 @@ impl Clone for Word {
 pub struct Runtime {
     input: VecDeque<String>,
     dictionary: HashMap<String, Word>,
-    stack: Vec<i32>
+    stack: Vec<i32>,
 }
 
 impl Runtime {
@@ -31,9 +31,9 @@ impl Runtime {
         let mut forth = Runtime {
             input: VecDeque::new(),
             dictionary: HashMap::new(),
-            stack: vec![]
+            stack: vec![],
         };
-        
+
         stdlib::register_stdlib(&mut forth);
 
         forth
@@ -65,10 +65,10 @@ impl Runtime {
         match self.dictionary.get(&name.to_lowercase()) {
             Some(w) => Ok(w.clone()),
             None => {
-                name.parse()
-                    .map(|num| Word::Number(num))
-                    .or(Err(format!("Undefined word \"{}\"", name)))
-
+                name.parse().map(|num| Word::Number(num)).or(Err(format!(
+                    "Undefined word \"{}\"",
+                    name
+                )))
             }
         }
     }
@@ -98,7 +98,7 @@ impl Runtime {
             &Word::Colon(ref definition) => {
                 self.prepend_names(definition);
                 Ok(())
-            },
+            }
             &Word::Number(num) => {
                 self.push(num);
                 Ok(())
@@ -118,4 +118,3 @@ impl Runtime {
         self.stack.push(value)
     }
 }
-
