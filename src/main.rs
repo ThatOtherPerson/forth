@@ -181,7 +181,7 @@ fn rt_forth_lt(forth: &mut Runtime) -> FResult {
 
 fn rt_forth_invert(forth: &mut Runtime) -> FResult {
     let value = try!(forth.pop().ok_or("Stack underflow".to_string()));
-    forth.push(!value);
+    forth.push((value == 0) as i32);
     Ok(())
 }
 
